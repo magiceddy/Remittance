@@ -1,4 +1,4 @@
-pragma solidity 0.4.21;
+pragma solidity ^0.4.21;
 
 contract Remittance {
     
@@ -13,10 +13,10 @@ contract Remittance {
     }
     
     mapping(address => mapping(bytes32 => RemittanceData)) public remittancesByOwner;
-    mapping(bytes32 => mapping(bytes32 => uint256)) public noncePerUser;
+    mapping(address => mapping(bytes32 => uint256)) public noncePerUser;
     
-    modifier noToLowValue() {
-        require(tx.gasprice * gasleft() < msg.value);
+    modifier noToLowValue(uint128 trashhold) {
+        require(msg.value > trashhold);
         _;
     }
     
@@ -27,11 +27,12 @@ contract Remittance {
     function setRemittance(
         bytes32 puzzle, 
         uint256 claimStart, 
-        uint256 claimEnd
+        uint256 claimEnd,
+        uint128 trashhold
     ) 
         public
         payable
-        noToLowValue
+        noToLowValue(trashhold)
         returns (bool)
     {
         require(remittancesByOwner[msg.sender][puzzle].amount == 0);
@@ -40,8 +41,8 @@ contract Remittance {
         
         remittance.toBeTransfered = true;
         remittance.amount = msg.value;
-        remittance.claimStart = block.timestamp + claimStart;
-        remittance.claimEnd = block.timestamp + claimEnd;
+        remittance.claimStart = now + claimStart;
+        remittance.claimEnd = now + claimEnd;
         return true;
     }
     
@@ -51,7 +52,7 @@ contract Remittance {
         bytes32 receiverPuzzle
     ) 
         public
-        returns (bool success) 
+        returns (bool) 
     {
         bytes32 puzzle = keccak256(exchangePuzzle, receiverPuzzle);
         
@@ -64,14 +65,9 @@ contract Remittance {
             
             remittancesByOwner[sender][puzzle].amount = 0;
             remittancesByOwner[sender][puzzle].toBeTransfered = false;
-            
-            if(!msg.sender.send(amount)) {
-                remittancesByOwner[sender][puzzle].toBeTransfered = true;
-                remittancesByOwner[sender][puzzle].amount = amount;
-                success = false;
-            }
-            success = true;
+            msg.sender.transfer(amount);
         }
+        return true;
     }
     
 
@@ -89,13 +85,15 @@ contract Remittance {
         
         assert(remittance.toBeTransfered);
         
-        remittancesByOwner[msg.sender][newPuzzle] = remittance;
         remittance.toBeTransfered = false;
+        remittancesByOwner[msg.sender][newPuzzle] = remittance;
+        remittancesByOwner[msg.sender][newPuzzle].toBeTransfered = true;
         return true;
     }
     
-    function getOneTimeNonce(bytes32 psw, bytes32 user) public returns (uint256) {
-        noncePerUser[psw][user] = now;
+    // user keccak256(msg.sender + email/phone)
+    function getOneTimeNonce(bytes32 user) public returns (uint256) {
+        noncePerUser[msg.sender][user] = now;
         return now;
     }
     
