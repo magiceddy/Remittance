@@ -8,7 +8,10 @@
     "build:release": "cross-env NODE_ENV=release node bin/commands.js build",
     "clean": "rimraf docroot",
     "test": "jest --no-cache",
-    "lint": "node bin/commands.js lint"
+    "lint": "node bin/commands.js lint",
+    "compile": "./node_modules/.bin/truffle compile",
+    "migrate": "./node_modules/.bin/truffle migrate --reset",
+    "ganache": "./node_modules/.bin/ganache-cli"
   },
   "repository": {
     "type": "git",
@@ -82,6 +85,8 @@
     "webpack-s3-plugin": "^1.0.0-rc.0"
   },
   "dependencies": {
+    "bluebird": "^3.5.1",
+    "ganache-cli": "^6.1.0",
     "history": "^4.7.2",
     "immutable": "^3.8.2",
     "prop-types": "^15.6.0",
@@ -96,7 +101,10 @@
     "redux": "^3.7.2",
     "redux-actions": "^2.2.1",
     "redux-saga": "^0.16.0",
-    "reselect": "^3.0.1"
+    "reselect": "^3.0.1",
+    "truffle": "^4.1.5",
+    "truffle-contract": "^3.0.4",
+    "web3": "^1.0.0-beta.33"
   },
   "jest": {
     "verbose": true,
