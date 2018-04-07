@@ -7,10 +7,11 @@
     "build": "cross-env NODE_ENV=production node bin/commands.js build",
     "build:release": "cross-env NODE_ENV=release node bin/commands.js build",
     "clean": "rimraf docroot",
-    "test": "jest --no-cache",
+    "test": "jest --no-cache && npm run truffle_test",
     "lint": "node bin/commands.js lint",
-    "compile": "./node_modules/.bin/truffle compile",
-    "migrate": "./node_modules/.bin/truffle migrate --reset",
+    "truffle_compile": "./node_modules/.bin/truffle compile",
+    "truffle_migrate": "./node_modules/.bin/truffle migrate --reset",
+    "truffle_test": "./node_modules/.bin/truffle test",
     "ganache": "./node_modules/.bin/ganache-cli"
   },
   "repository": {
