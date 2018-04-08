@@ -3,19 +3,20 @@ pragma solidity ^0.4.21;
 contract Remittance {
     
     address public owner;
+    uint256 public trashhold;
     
     struct RemittanceData {
         uint256 amount;
         uint256 claimStart;
         uint256 claimEnd;
         bool toBeTransfered;
-
     }
     
     mapping(address => mapping(bytes32 => RemittanceData)) public remittancesByOwner;
     mapping(address => mapping(bytes32 => uint256)) public noncePerUser;
     
-    modifier noToLowValue(uint128 trashhold) {
+    modifier noToLowValue() {
+        require(trashhold != 0x00);
         require(msg.value > trashhold);
         _;
     }
@@ -27,12 +28,11 @@ contract Remittance {
     function setRemittance(
         bytes32 puzzle, 
         uint256 claimStart, 
-        uint256 claimEnd,
-        uint128 trashhold
+        uint256 claimEnd
     ) 
         public
         payable
-        noToLowValue(trashhold)
+        noToLowValue()
         returns (bool)
     {
         require(remittancesByOwner[msg.sender][puzzle].amount == 0);
@@ -96,5 +96,27 @@ contract Remittance {
         noncePerUser[msg.sender][user] = now;
         return now;
     }
-    
+
+    function setTrashhold(uint256 newTrashhold)
+        public 
+        returns (bool) 
+    {
+        require(msg.sender == owner);
+        require(newTrashhold != trashhold);
+        trashhold = newTrashhold;
+    }
+
+    function getRemittance(bytes32 puzzle) 
+        public 
+        view 
+        returns(
+            uint256 amount,
+            uint256 claimStart,
+            uint256 claimEnd,
+            bool toBeTransfered
+        ) 
+    {
+        RemittanceData memory r = remittancesByOwner[msg.sender][puzzle];
+        return(r.amount, r.claimStart, r.claimEnd, r.toBeTransfered);
+    }  
 }
