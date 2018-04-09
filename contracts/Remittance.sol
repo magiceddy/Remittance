@@ -13,7 +13,7 @@ contract Remittance {
     }
     
     mapping(address => mapping(bytes32 => RemittanceData)) public remittancesByOwner;
-    mapping(address => mapping(bytes32 => uint256)) public noncePerUser;
+    mapping(address => mapping(bytes32 => uint256)) private noncePerUser;
     
     modifier noToLowValue() {
         require(trashhold != 0x00);
@@ -46,7 +46,7 @@ contract Remittance {
         return true;
     }
     
-    function Withdrawal(
+    function withdrawal(
         address sender, 
         bytes32 exchangePuzzle, 
         bytes32 receiverPuzzle
@@ -66,8 +66,9 @@ contract Remittance {
             remittancesByOwner[sender][puzzle].amount = 0;
             remittancesByOwner[sender][puzzle].toBeTransfered = false;
             msg.sender.transfer(amount);
+            return true;
         }
-        return true;
+        return false;
     }
     
 
