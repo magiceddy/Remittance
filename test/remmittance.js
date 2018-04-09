@@ -2,6 +2,7 @@ const Promise = require('bluebird');
 const Remittance = artifacts.require("./Remittance.sol");
 
 Promise.promisifyAll(web3.eth, { suffix: "Promise" });
+Promise.promisifyAll(web3.personal, { suffix: "Promise" });
 
 let instance;
 
@@ -10,12 +11,8 @@ contract('Remittance', async accounts => {
     const sender = accounts[1];
     const exchange = accounts[2];
 
-    let exchangePuzzle;
-    let receiverPuzzle;
-    let puzzle;
-
     beforeEach(async() => {
-        instance = await Remittance.deployed();
+        instance = await Remittance.new();
     });
 
     describe('Contructor', async() => {
@@ -45,7 +42,7 @@ contract('Remittance', async accounts => {
         });
     });
 
-    describe('setRemittance', async() => {
+    describe('', async() => {
 
         describe('fail case', async() => {
 
@@ -100,5 +97,106 @@ contract('Remittance', async accounts => {
         });
     });
 
-    describe('Withdrawal', async() => {});
+    describe('Withdrawal', async() => {
+
+        let exchangePuzzle;
+        let receiverPuzzle;
+        let puzzle;
+        let exchangeEmail = web3.sha3("test@gmail.com");
+        let receiverPhone = web3.sha3("+39495869433");
+        let exchangeNonce;
+        let receiverNonce;
+        
+        beforeEach(async() => {
+            exchangeNonce = await instance.getOneTimeNonce.call(exchangeEmail);
+            receiverNonce = await instance.getOneTimeNonce.call(receiverPhone);
+            exchangePuzzle = web3.sha3(exchangeEmail + exchangeNonce);
+            receiverPuzzle = web3.sha3(receiverPhone + receiverNonce);
+            puzzle = web3.sha3(exchangePuzzle.substr(2), receiverPuzzle.substr(2), { encoding: 'hex' });
+            await instance.setTrashhold(1);
+        });
+
+        describe('fail case', async() => {
+
+            it('should fail whit inconsistend data inputs', async() => {
+                await instance.setRemittance(puzzle, 1, 1, { value: 2 });
+                const result = await instance.withdrawal.call(exchange, exchangePuzzle, receiverPuzzle);
+                assert.isFalse(result, 'withdrawal with inconsistent sender');
+            });
+
+            it('should fail with too early claimback', async() => {
+                await instance.setRemittance(puzzle, 10000, 10000, { value: 2 });
+
+                try {
+                    const txObject = await instance.withdrawal(owner, exchangePuzzle, receiverPuzzle);
+                    assert.isUndefined(txObject, 'too early claimback allowed');
+                } catch (err) {
+                    assert.include(err.message, 'invalid opcode', 'no invalid OPCODE with too early claimback');
+                }
+            });
+
+            it('should fail with too late claimback', async() => {
+                await instance.setRemittance(puzzle, 0, 0, { value: 2 });
+
+                try {
+                    const txObject = await instance.withdrawal(owner, exchangePuzzle, receiverPuzzle);
+                    assert.isUndefined(txObject, 'too late claimback allowed');
+                } catch (err) {
+                    assert.include(err.message, 'invalid opcode', 'no invalid opcode with too late claimback');
+                }
+            });
+        });
+
+        describe('success case', async() => {
+
+            it('should allow withdrawal for exchange', async() => {
+                await instance.setRemittance(puzzle, 1, 1, { value: 2 });
+
+                const initialExchangeBalance = await web3.eth.getBalance(exchange);
+                const txObject = await instance.withdrawal(
+                    owner, exchangePuzzle.substr(2), receiverPuzzle.substr(2),
+                    { from: exchange }
+                );
+                const remittance = await instance.getRemittance(puzzle);
+
+                const exchangeBalance = await web3.eth.getBalance(exchange);
+                const txFee = getTxFee(txObject);
+
+                assert.isFalse(remittance[3], 'no falsy value for withdrawad remittance');
+                assert.equal(
+                    exchangeBalance.minus(2).plus(txFee).toString(10),
+                    initialExchangeBalance.toString(10),
+                    'exchange balance not correct'
+                );
+            });
+
+            it('should allow withdrawal for sender', async() => {
+                await instance.setRemittance(puzzle, 1, 1000, { value: 2 });
+                const initialOwnerBalance = await web3.eth.getBalance(owner);
+                const txObject = await instance.withdrawal(
+                    owner, exchangePuzzle.substr(2), receiverPuzzle.substr(2),
+                    { from: owner }
+                );
+
+                const ownerBalance = await web3.eth.getBalance(owner);
+                const txFee = getTxFee(txObject);
+
+                assert.equal(
+                    ownerBalance.minus(2).plus(txFee).toString(10),
+                    initialOwnerBalance.toString(10),
+                    'exchange balance not correct'
+                );
+
+                const remittance = await instance.getRemittance(puzzle);
+                assert.isFalse(remittance[3], 'no falsy value for withdrawad remittance');
+            });
+        });
+    });
 });
+
+const getTxFee = txObject => {
+    const gasUsed = txObject.receipt.gasUsed;
+    const transaction = web3.eth.getTransaction(txObject.tx);
+    const gasPrice = transaction.gasPrice;
+    return gasPrice.times(gasUsed);
+}
