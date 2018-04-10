@@ -150,7 +150,7 @@ contract('Remittance', async accounts => {
         describe('success case', async() => {
 
             it('should allow withdrawal for exchange', async() => {
-                await instance.setRemittance(puzzle, 1, 1, { value: 2 });
+                await instance.setRemittance(puzzle, 0, 1, { value: 2 });
 
                 const initialExchangeBalance = await web3.eth.getBalance(exchange);
                 const txObject = await instance.withdrawal(
@@ -162,7 +162,7 @@ contract('Remittance', async accounts => {
                 const exchangeBalance = await web3.eth.getBalance(exchange);
                 const txFee = getTxFee(txObject);
 
-                assert.isFalse(remittance[3], 'no falsy value for withdrawad remittance');
+                assert.isFalse(remittance[3], 'no false value for withdrawad remittance');
                 assert.equal(
                     exchangeBalance.minus(2).plus(txFee).toString(10),
                     initialExchangeBalance.toString(10),
@@ -171,7 +171,7 @@ contract('Remittance', async accounts => {
             });
 
             it('should allow withdrawal for sender', async() => {
-                await instance.setRemittance(puzzle, 1, 1000, { value: 2 });
+                await instance.setRemittance(puzzle, 0, 10000, { value: 2 });
                 const initialOwnerBalance = await web3.eth.getBalance(owner);
                 const txObject = await instance.withdrawal(
                     owner, exchangePuzzle.substr(2), receiverPuzzle.substr(2),
@@ -188,7 +188,60 @@ contract('Remittance', async accounts => {
                 );
 
                 const remittance = await instance.getRemittance(puzzle);
-                assert.isFalse(remittance[3], 'no falsy value for withdrawad remittance');
+                assert.isFalse(remittance[3], 'no false value for withdrawad remittance');
+            });
+        });
+    });
+
+    describe('senderCanClaimback', async() => {
+
+        let exchangePuzzle;
+        let receiverPuzzle;
+        let puzzle;
+        let exchangeEmail = web3.sha3("test@gmail.com");
+        let receiverPhone = web3.sha3("+39495869433");
+        let exchangeNonce;
+        let receiverNonce;
+
+        beforeEach(async() => {
+            exchangeNonce = await instance.getOneTimeNonce.call(exchangeEmail);
+            receiverNonce = await instance.getOneTimeNonce.call(receiverPhone);
+            exchangePuzzle = web3.sha3(exchangeEmail + exchangeNonce);
+            receiverPuzzle = web3.sha3(receiverPhone + receiverNonce);
+            puzzle = web3.sha3(exchangePuzzle.substr(2), receiverPuzzle.substr(2), { encoding: 'hex' });
+            instance.setTrashhold(1);
+        });
+
+        describe('fail case', async() => {
+
+            it('should return false for too early claimback', async() => {
+                const txObject = await instance.setRemittance(
+                    puzzle, 1000, 1000,
+                     { value: 10 }
+                );
+                const result = await instance.senderCanClaimback.call(puzzle);
+                assert.isFalse(result, 'no false value for too early claimback');
+            });
+
+            it('should return false for too late claimback', async() => {
+                const txObject = await instance.setRemittance(
+                    puzzle, 0, 10,
+                     { value: 10 }
+                );
+                const result = await instance.senderCanClaimback.call(puzzle);
+                assert.isFalse(result, 'no false value for too late claimback');
+            });
+        });
+
+        describe('success case', async() => {
+
+            it('should return true for allowed claimback', async() => {
+                const txObject = await instance.setRemittance(
+                    puzzle, 0, 10000,
+                     { value: 10 }
+                );
+                const result = await instance.senderCanClaimback.call(puzzle);
+                assert.isTrue(result, 'no true value for allowed claimback');
             });
         });
     });
