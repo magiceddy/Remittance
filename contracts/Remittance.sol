@@ -14,6 +14,12 @@ contract Remittance {
     
     mapping(address => mapping(bytes32 => RemittanceData)) public remittancesByOwner;
     mapping(address => mapping(bytes32 => uint256)) private noncePerUser;
+
+    event LogNewRemittance(address indexed sender, uint256 amount, bytes32 puzzle);
+    event LogWithdrawal(address indexed sender, address indexed exchange, bytes32 puzzle);
+    event LogChangePuzzle(address indexed owner, bytes32 oldPuzzle, bytes32 newPuzzle);
+    event LogNewNonce(address indexed sender, bytes32 user, uint256 nonce);
+    event LogTreshhold(uint256 trashhold);
     
     modifier noToLowValue() {
         require(trashhold != 0x00);
@@ -38,11 +44,12 @@ contract Remittance {
         require(remittancesByOwner[msg.sender][puzzle].amount == 0);
         
         RemittanceData storage remittance = remittancesByOwner[msg.sender][puzzle];
-        
         remittance.toBeTransfered = true;
         remittance.amount = msg.value;
         remittance.claimStart = now + claimStart;
         remittance.claimEnd = now + claimEnd;
+
+        emit LogNewRemittance(msg.sender, msg.value, puzzle);
         return true;
     }
     
@@ -66,6 +73,8 @@ contract Remittance {
             remittancesByOwner[sender][puzzle].amount = 0;
             remittancesByOwner[sender][puzzle].toBeTransfered = false;
             msg.sender.transfer(amount);
+
+            emit LogWithdrawal(sender, msg.sender, puzzle);
             return true;
         }
         return false;
@@ -89,12 +98,16 @@ contract Remittance {
         remittance.toBeTransfered = false;
         remittancesByOwner[msg.sender][newPuzzle] = remittance;
         remittancesByOwner[msg.sender][newPuzzle].toBeTransfered = true;
+
+        emit LogChangePuzzle(msg.sender, oldPuzzle, newPuzzle);
         return true;
     }
     
-    // user keccak256(msg.sender + email/phone)
+    // in production external oracle
     function getOneTimeNonce(bytes32 user) public returns (uint256) {
         noncePerUser[msg.sender][user] = now;
+        
+        emit LogNewNonce(msg.sender, user, noncePerUser[msg.sender][user]);
         return now;
     }
 
@@ -104,7 +117,9 @@ contract Remittance {
     {
         require(msg.sender == owner);
         require(newTrashhold != trashhold);
+
         trashhold = newTrashhold;
+        emit LogTreshhold(newTrashhold);
     }
 
     function getRemittance(bytes32 puzzle) 
