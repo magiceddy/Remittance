@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { Provider } from 'react-redux';
 import { HashRouter as Router } from 'react-router-dom';
+import Web3Context from './common/context/Web3Context';
 
 export default class Root extends Component {
   get content() {
@@ -15,7 +16,9 @@ export default class Root extends Component {
   render() {
     return (
       <Provider store={this.props.store}>
-        {this.content}
+        <Web3Context.Provider>
+          {this.content}
+        </Web3Context.Provider>
       </Provider>
     );
   }
