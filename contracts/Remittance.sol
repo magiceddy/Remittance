@@ -46,8 +46,8 @@ contract Remittance {
         RemittanceData storage remittance = remittancesByOwner[msg.sender][puzzle];
         remittance.toBeTransfered = true;
         remittance.amount = msg.value;
-        remittance.claimStart = now + claimStart;
-        remittance.claimEnd = now + claimEnd;
+        remittance.claimStart = block.number + claimStart;
+        remittance.claimEnd = block.number + claimEnd;
 
         emit LogNewRemittance(msg.sender, msg.value, puzzle);
         return true;
@@ -81,10 +81,10 @@ contract Remittance {
     }
     
 
-    function senderCanClaimback(bytes32 puzzle) public view returns (bool) {
+    function senderCanClaimback(bytes32 puzzle) public returns (bool) {
         uint256 claimStart = remittancesByOwner[msg.sender][puzzle].claimStart;
         uint256 claimEnd = remittancesByOwner[msg.sender][puzzle].claimEnd;
-        return now <= claimEnd && now >= claimStart;
+        return block.number <= claimEnd && block.number >= claimStart;
     }
     
     function changePuzzle(bytes32 oldPuzzle, bytes32 newPuzzle) 
@@ -105,10 +105,10 @@ contract Remittance {
     
     // in production external oracle
     function getOneTimeNonce(bytes32 user) public returns (uint256) {
-        noncePerUser[msg.sender][user] = now;
+        noncePerUser[msg.sender][user] = block.number;
         
         emit LogNewNonce(msg.sender, user, noncePerUser[msg.sender][user]);
-        return now;
+        return block.number;
     }
 
     function setTrashhold(uint256 newTrashhold)
