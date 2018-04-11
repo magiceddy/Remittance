@@ -9,6 +9,7 @@ B9Lab Project 2
 
 `npm run truffle_test`
 
-##TODO:
+## TODO:
 
 - [ ] UI
+- [ ] Refactor test ( too verbose )
