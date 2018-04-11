@@ -83,9 +83,11 @@ contract Remittance {
             
             remittancesByOwner[sender][puzzle].amount = 0;
             remittancesByOwner[sender][puzzle].toBeTransfered = false;
-            msg.sender.transfer(amount);
 
             emit LogWithdrawal(sender, msg.sender, puzzle);
+            
+            msg.sender.transfer(amount);
+
             return true;
         } else {
             revert();
