@@ -1,0 +1,1 @@
+export const SET_TRASHHOLD = 'SET_TRASHHOLD';
