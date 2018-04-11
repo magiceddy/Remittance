@@ -87,6 +87,8 @@ contract Remittance {
 
             emit LogWithdrawal(sender, msg.sender, puzzle);
             return true;
+        } else {
+            revert();
         }
         return false;
     }
