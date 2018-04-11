@@ -11,42 +11,42 @@ contract('Remittance', async accounts => {
     const sender = accounts[1];
     const exchange = accounts[2];
 
-    beforeEach(async() => {
+    beforeEach(async () => {
         instance = await Remittance.new();
     });
 
-    describe('Contructor', async() => {
+    describe('Contructor', async () => {
 
-        describe('fail case', async() => {
+        describe('fail case', async () => {
 
-            it('should fail with value in transaction', async() => {
+            it('should fail with value in transaction', async () => {
                 try {
                     const ValueInstance = await Remittance.new({ value: 10 });
                     assert.isUndefined(ValueInstance, 'Contructor accept transaction with value');
                 } catch (err) {
                     assert.equal(
-                        err.message, 
-                        'Cannot send value to non-payable constructor', 
+                        err.message,
+                        'Cannot send value to non-payable constructor',
                         'No Revert for value in contructor transaction'
                     );
                 }
             });
         });
 
-        describe('success case', async() => {
+        describe('success case', async () => {
 
-            it('should set the correct contract\'s owner', async() => {
+            it('should set the correct contract\'s owner', async () => {
                 const contractOwner = await instance.owner();
                 assert.strictEqual(contractOwner, owner, 'Contract creator is not the owner');
             });
         });
     });
 
-    describe('Remittance', async() => {
+    describe('Remittance', async () => {
 
-        describe('fail case', async() => {
+        describe('fail case', async () => {
 
-            it('should fail whitout trashhold setted', async() => {
+            it('should fail whitout trashhold setted', async () => {
                 try {
                     const txOjb = await instance.setRemittance(0xa, 1, 1, { value: 10 });
                     assert.isUndefined(txOjb, 'it set remmittance with an incorrect treshhold');
@@ -55,7 +55,7 @@ contract('Remittance', async accounts => {
                 }
             })
 
-            it('should fail with msg.value lower than trashhold', async() => {
+            it('should fail with msg.value lower than trashhold', async () => {
                 try {
                     await instance.setTrashhold(10);
                     const txOjb = await instance.setRemittance(0xa, 1, 1, { value: 5 });
@@ -65,7 +65,7 @@ contract('Remittance', async accounts => {
                 }
             });
 
-            it('should fail for remittance already created', async() => {
+            it('should fail for remittance already created', async () => {
                 try {
                     await instance.setTrashhold(10);
                     await instance.setRemittance(0xa, 1, 1, { value: 10 });
@@ -78,9 +78,9 @@ contract('Remittance', async accounts => {
             });
         });
 
-        describe('success case', async() => {
+        describe('success case', async () => {
 
-            it('should create a remittance', async() => {
+            it('should create a remittance', async () => {
                 await instance.setTrashhold(30);
                 const txObject = await instance.setRemittance(0xa, 1, 1, { value: 31 });
 
@@ -97,7 +97,7 @@ contract('Remittance', async accounts => {
         });
     });
 
-    describe('Withdrawal', async() => {
+    describe('Withdrawal', async () => {
 
         let exchangePuzzle;
         let receiverPuzzle;
@@ -106,8 +106,8 @@ contract('Remittance', async accounts => {
         let receiverPhone = web3.sha3("+39495869433");
         let exchangeNonce;
         let receiverNonce;
-        
-        beforeEach(async() => {
+
+        beforeEach(async () => {
             exchangeNonce = await instance.getOneTimeNonce.call(exchangeEmail);
             receiverNonce = await instance.getOneTimeNonce.call(receiverPhone);
             exchangePuzzle = web3.sha3(exchangeEmail + exchangeNonce);
@@ -116,15 +116,15 @@ contract('Remittance', async accounts => {
             await instance.setTrashhold(1);
         });
 
-        describe('fail case', async() => {
+        describe('fail case', async () => {
 
-            it('should fail whit inconsistend data inputs', async() => {
+            it('should fail whit inconsistend data inputs', async () => {
                 await instance.setRemittance(puzzle, 1, 1, { value: 2 });
                 const result = await instance.withdrawal.call(exchange, exchangePuzzle, receiverPuzzle);
                 assert.isFalse(result, 'withdrawal with inconsistent sender');
             });
 
-            it('should fail with too early claimback', async() => {
+            it('should fail with too early claimback', async () => {
                 await instance.setRemittance(puzzle, 10000, 10000, { value: 2 });
 
                 try {
@@ -135,7 +135,7 @@ contract('Remittance', async accounts => {
                 }
             });
 
-            it('should fail with too late claimback', async() => {
+            it('should fail with too late claimback', async () => {
                 await instance.setRemittance(puzzle, 0, 0, { value: 2 });
 
                 try {
@@ -147,9 +147,9 @@ contract('Remittance', async accounts => {
             });
         });
 
-        describe('success case', async() => {
+        describe('success case', async () => {
 
-            it('should allow withdrawal for exchange', async() => {
+            it('should allow withdrawal for exchange', async () => {
                 await instance.setRemittance(puzzle, 0, 1, { value: 2 });
 
                 const initialExchangeBalance = await web3.eth.getBalance(exchange);
@@ -170,7 +170,7 @@ contract('Remittance', async accounts => {
                 );
             });
 
-            it('should allow withdrawal for sender', async() => {
+            it('should allow withdrawal for sender', async () => {
                 await instance.setRemittance(puzzle, 0, 10000, { value: 2 });
                 const initialOwnerBalance = await web3.eth.getBalance(owner);
                 const txObject = await instance.withdrawal(
@@ -193,7 +193,7 @@ contract('Remittance', async accounts => {
         });
     });
 
-    describe('senderCanClaimback', async() => {
+    describe('senderCanClaimback', async () => {
 
         let exchangePuzzle;
         let receiverPuzzle;
@@ -203,7 +203,7 @@ contract('Remittance', async accounts => {
         let exchangeNonce;
         let receiverNonce;
 
-        beforeEach(async() => {
+        beforeEach(async () => {
             exchangeNonce = await instance.getOneTimeNonce.call(exchangeEmail);
             receiverNonce = await instance.getOneTimeNonce.call(receiverPhone);
             exchangePuzzle = web3.sha3(exchangeEmail + exchangeNonce);
@@ -212,21 +212,21 @@ contract('Remittance', async accounts => {
             instance.setTrashhold(1);
         });
 
-        describe('fail case', async() => {
+        describe('fail case', async () => {
 
-            it('should return false for too early claimback', async() => {
+            it('should return false for too early claimback', async () => {
                 const txObject = await instance.setRemittance(
                     puzzle, 1000, 1000,
-                     { value: 10 }
+                    { value: 10 }
                 );
                 const result = await instance.senderCanClaimback.call(puzzle);
                 assert.isFalse(result, 'no false value for too early claimback');
             });
 
-            it('should return false for too late claimback', async() => {
+            it('should return false for too late claimback', async () => {
                 const txObject = await instance.setRemittance(
                     puzzle, 0, 0,
-                     { value: 10 }
+                    { value: 10 }
                 );
                 const result = await instance.senderCanClaimback.call(puzzle);
 
@@ -236,12 +236,12 @@ contract('Remittance', async accounts => {
             });
         });
 
-        describe('success case', async() => {
+        describe('success case', async () => {
 
-            it('should return true for allowed claimback', async() => {
+            it('should return true for allowed claimback', async () => {
                 const txObject = await instance.setRemittance(
                     puzzle, 0, 10000,
-                     { value: 10 }
+                    { value: 10 }
                 );
                 const result = await instance.senderCanClaimback.call(puzzle);
                 assert.isTrue(result, 'no true value for allowed claimback');
@@ -249,7 +249,7 @@ contract('Remittance', async accounts => {
         });
     });
 
-    describe('changePuzzle', async() => {
+    describe('changePuzzle', async () => {
 
         let exchangePuzzle;
         let receiverPuzzle;
@@ -260,7 +260,7 @@ contract('Remittance', async accounts => {
         let receiverNonce;
 
 
-        beforeEach(async() => {
+        beforeEach(async () => {
             exchangeNonce = await instance.getOneTimeNonce.call(exchangeEmail);
             receiverNonce = await instance.getOneTimeNonce.call(receiverPhone);
             exchangePuzzle = web3.sha3(exchangeEmail + exchangeNonce);
@@ -269,10 +269,10 @@ contract('Remittance', async accounts => {
             await instance.setTrashhold(1);
             await instance.setRemittance(puzzle, 1, 1, { value: 2 });
         });
-         
-        describe('fail case', async() => {
 
-            it('should return invalid opcode', async() => {
+        describe('fail case', async () => {
+
+            it('should return invalid opcode', async () => {
                 try {
                     const txObject = await instance.changePuzzle(0xa, puzzle);
                     assert.isUndefined(txObject, 'puzzle changed with inexistent puzzle');
@@ -282,10 +282,10 @@ contract('Remittance', async accounts => {
             });
         });
 
-        describe('success case', async() => {
+        describe('success case', async () => {
             let newPuzzle;
 
-            beforeEach(async() => {
+            beforeEach(async () => {
                 exchangeNonce = await instance.getOneTimeNonce.call(exchangeEmail);
                 receiverNonce = await instance.getOneTimeNonce.call(receiverPhone);
                 exchangePuzzle = web3.sha3(exchangeEmail + exchangeNonce);
@@ -293,7 +293,7 @@ contract('Remittance', async accounts => {
                 newPuzzle = web3.sha3(exchangePuzzle.substr(2), receiverPuzzle.substr(2), { encoding: 'hex' });
             });
 
-            it('should change the puzzle', async() => {
+            it('should change the puzzle', async () => {
                 const txObject = await instance.changePuzzle(puzzle, newPuzzle);
                 const OldRemittancesByOwner = await instance.getRemittance.call(puzzle);
                 const newRemittancesByOwner = await instance.getRemittance.call(newPuzzle);
@@ -306,11 +306,11 @@ contract('Remittance', async accounts => {
         });
     });
 
-    describe('setTrashhold', async() => {
+    describe('setTrashhold', async () => {
 
-        describe('fail case', async() => {
+        describe('fail case', async () => {
 
-            it('should fail with no owner transaction', async() => {
+            it('should fail with no owner transaction', async () => {
                 try {
                     await instance.setTrashhold(2, { from: exchange });
                 } catch (err) {
@@ -318,7 +318,7 @@ contract('Remittance', async accounts => {
                 }
             });
 
-            it('should fail with same value', async() => {
+            it('should fail with same value', async () => {
                 await instance.setTrashhold(1);
                 try {
                     await instance.setTrashhold(1);
@@ -328,9 +328,9 @@ contract('Remittance', async accounts => {
             });
         })
 
-        describe('success case', async() => {
+        describe('success case', async () => {
 
-            it('should set the trashhold', async() => {
+            it('should set the trashhold', async () => {
                 await instance.setTrashhold(1);
                 const trash = await instance.trashhold();
 
@@ -339,7 +339,7 @@ contract('Remittance', async accounts => {
         });
     });
 
-    describe('getRemittance', async() => {
+    describe('getRemittance', async () => {
 
         let exchangePuzzle;
         let receiverPuzzle;
@@ -349,7 +349,7 @@ contract('Remittance', async accounts => {
         let exchangeNonce;
         let receiverNonce;
 
-        beforeEach(async() => {
+        beforeEach(async () => {
             exchangeNonce = await instance.getOneTimeNonce.call(exchangeEmail);
             receiverNonce = await instance.getOneTimeNonce.call(receiverPhone);
             exchangePuzzle = web3.sha3(exchangeEmail + exchangeNonce);
@@ -359,7 +359,7 @@ contract('Remittance', async accounts => {
             await instance.setRemittance(puzzle, 1, 1, { value: 2 });
         });
 
-        it('should return nothing', async() => {
+        it('should return nothing', async () => {
             const result = await instance.getRemittance.call(0xa);
             assert.equal(result[0].toString(10), 0, 'no zero amount');
             assert.equal(result[1].toString(10), 0, 'no zero claimStart');
@@ -367,7 +367,7 @@ contract('Remittance', async accounts => {
             assert.isFalse(result[3], 'no false value');
         });
 
-        it('should return remittance', async() => {
+        it('should return remittance', async () => {
             const result = await instance.getRemittance.call(puzzle);
             assert.equal(result[0].toString(10), 2, 'amount not correct');
             assert.isTrue(result[3], 'no true value');
