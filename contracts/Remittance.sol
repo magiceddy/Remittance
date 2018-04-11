@@ -13,7 +13,7 @@ contract Remittance {
     }
     
     mapping(address => mapping(bytes32 => RemittanceData)) public remittancesByOwner;
-    mapping(address => mapping(bytes32 => uint256)) private noncePerUser;
+    mapping(address => mapping(bytes32 => uint256)) public noncePerUser;
 
     enum State { Run, Stop }
     State state;
@@ -85,7 +85,7 @@ contract Remittance {
             remittancesByOwner[sender][puzzle].toBeTransfered = false;
 
             emit LogWithdrawal(sender, msg.sender, puzzle);
-            
+
             msg.sender.transfer(amount);
 
             return true;
