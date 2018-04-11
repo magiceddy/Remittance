@@ -15,6 +15,9 @@ contract Remittance {
     mapping(address => mapping(bytes32 => RemittanceData)) public remittancesByOwner;
     mapping(address => mapping(bytes32 => uint256)) private noncePerUser;
 
+    enum State { Run, Stop }
+    State state;
+
     event LogNewRemittance(address indexed sender, uint256 amount, bytes32 puzzle);
     event LogWithdrawal(address indexed sender, address indexed exchange, bytes32 puzzle);
     event LogChangePuzzle(address indexed owner, bytes32 oldPuzzle, bytes32 newPuzzle);
@@ -26,9 +29,15 @@ contract Remittance {
         require(msg.value > trashhold);
         _;
     }
+
+    modifier running() {
+        require(state == State.Run);
+        _;
+    }
     
     function Remittance() public{
         owner = msg.sender;
+        state = State.Run;
     }
     
     function setRemittance(
@@ -38,6 +47,7 @@ contract Remittance {
     ) 
         public
         payable
+        running()
         noToLowValue()
         returns (bool)
     {
@@ -59,6 +69,7 @@ contract Remittance {
         bytes32 receiverPuzzle
     ) 
         public
+        running()
         returns (bool) 
     {
         bytes32 puzzle = keccak256(exchangePuzzle, receiverPuzzle);
@@ -80,8 +91,7 @@ contract Remittance {
         return false;
     }
     
-
-    function senderCanClaimback(bytes32 puzzle) public returns (bool) {
+    function senderCanClaimback(bytes32 puzzle) public view returns (bool) {
         uint256 claimStart = remittancesByOwner[msg.sender][puzzle].claimStart;
         uint256 claimEnd = remittancesByOwner[msg.sender][puzzle].claimEnd;
         return block.number <= claimEnd && block.number >= claimStart;
@@ -134,5 +144,12 @@ contract Remittance {
     {
         RemittanceData memory r = remittancesByOwner[msg.sender][puzzle];
         return(r.amount, r.claimStart, r.claimEnd, r.toBeTransfered);
+    }
+
+    function() public {}
+
+    function kill() public {
+        require(msg.sender == owner);
+        state = State.Stop;
     }  
 }
