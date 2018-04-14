@@ -1,9 +1,12 @@
 pragma solidity ^0.4.21;
 
 contract Remittance {
-    
+
+    enum State { Run, Stop }
+
     address public owner;
     uint256 public trashhold;
+    State public state;
     
     struct RemittanceData {
         uint256 amount;
@@ -14,9 +17,6 @@ contract Remittance {
     
     mapping(address => mapping(bytes32 => RemittanceData)) public remittancesByOwner;
     mapping(address => mapping(bytes32 => uint256)) public noncePerUser;
-
-    enum State { Run, Stop }
-    State state;
 
     event LogNewRemittance(address indexed sender, uint256 amount, bytes32 puzzle);
     event LogWithdrawal(address indexed sender, address indexed exchange, bytes32 puzzle);
