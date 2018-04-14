@@ -55,10 +55,11 @@ contract Remittance {
         noToLowValue()
         returns (bool)
     {
-        require(remittancesByOwner[msg.sender][puzzle].amount == 0);
+        RemittanceData storage remittance = remittancesByOwner[msg.sender][puzzle];
+
+        require(remittance.amount == 0);
         require(claimStart <= claimEnd);
 
-        RemittanceData storage remittance = remittancesByOwner[msg.sender][puzzle];
         remittance.toBeTransfered = true;
         remittance.amount = msg.value;
         remittance.claimStart = block.number + claimStart;
@@ -77,33 +78,25 @@ contract Remittance {
         running()
         returns (bool)
     {
+        require(msg.sender != sender);
+
         bytes32 puzzle = keccak256(exchangePuzzle, receiverPuzzle);
+        Remittance storage remittance = remittancesByOwner[sender][puzzle];
 
-        if (sender == msg.sender) {
-            assert(senderCanClaimback(puzzle));
-        }
-
-        if (remittancesByOwner[sender][puzzle].toBeTransfered) {
-            uint256 amount = remittancesByOwner[sender][puzzle].amount;
-
-            remittancesByOwner[sender][puzzle].amount = 0;
-            remittancesByOwner[sender][puzzle].toBeTransfered = false;
-
-            emit LogWithdrawal(sender, msg.sender, puzzle);
-
-            msg.sender.transfer(amount);
-
+        if (transfer(remittance)) {
             return true;
-        } else {
-            revert();
         }
         return false;
     }
 
-    function senderCanClaimback(bytes32 puzzle) public view returns (bool) {
-        uint256 claimStart = remittancesByOwner[msg.sender][puzzle].claimStart;
-        uint256 claimEnd = remittancesByOwner[msg.sender][puzzle].claimEnd;
-        return block.number <= claimEnd && block.number >= claimStart;
+    function claimBack(bytes32 puzzle) public returns (bool) {
+        Remittance storage remittance = remittancesByOwner[msg.sender][puzzle];
+        require(senderCanClaimback(puzzle));
+
+        if (transfer(remittance)) {
+            return true;
+        }
+        return false;
     }
 
     function changePuzzle(bytes32 oldPuzzle, bytes32 newPuzzle)
@@ -158,5 +151,28 @@ contract Remittance {
     function kill() public {
         require(msg.sender == owner);
         state = State.Stop;
+    }
+
+    function transfer(Remittance remittance) private returns (bool) {
+        if (remittance.toBeTransfered) {
+            uint256 amount = remittance.amount;
+
+            remittance.amount = 0;
+            remittance.toBeTransfered = false;
+
+            emit LogWithdrawal(sender, msg.sender, puzzle);
+            msg.sender.transfer(amount);
+
+            return true;
+        }
+        return false;
+    }
+
+    function senderCanClaimback(Remittance remittance)
+        private
+        view
+        returns (bool)
+    {
+        return block.number <= remittance.claimEnd && block.number >= remittance.claimStart;
     }
 }
