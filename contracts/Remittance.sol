@@ -9,7 +9,7 @@ contract Remittance is Ownable {
     uint256 public claimEnd;
     address public exchange;
 
-    enum State {Created, Withdrawal, Killed}
+    enum State {Created, Killed}
     State public state;
 
     event LogRemittance(
@@ -50,14 +50,6 @@ contract Remittance is Ownable {
         emit LogStateChange(state);
     }
 
-    function setWithdrawalState() public onlyOwner returns (bool) {
-        require(state == State.Created);
-
-        state = State.Withdrawal;
-        emit LogStateChange(state);
-        return true;
-    }
-
     function senderCanClaimback()
         public
         view
@@ -67,8 +59,6 @@ contract Remittance is Ownable {
     }
 
     function kill() public onlyOwner returns (bool) {
-        require(state == State.Withdrawal);
-
         state = State.Killed;
         emit LogKilled();
         return true;
