@@ -99,22 +99,12 @@ contract RemittanceManager is Ownable, Bank {
 		return true;
 	}
 
-	function transfer(bytes32 _puzzle, address _beneficiary)
-		private
-		onlyOwner
-		returns (bool)
+	function getPuzzle(bytes32 _exchangePuzzle, bytes32 _receiverPuzzle)
+		public
+		pure
+		returns (bytes32)
 	{
-		Remittance remittance = getRemittance(_puzzle);
-
-		uint256 amount = getAmount(_puzzle);
-		remittance.setWithdrawalState();
-		deleteAccount(_puzzle);
-		delete remittances[_puzzle];
-
-		require(_beneficiary.send(amount));
-
-		emit LogWithdrawal(_puzzle);
-		return true;
+		return keccak256(_exchangePuzzle, _receiverPuzzle);
 	}
 
 	function getRemittance(bytes32 _puzzle) public view returns (Remittance) {
