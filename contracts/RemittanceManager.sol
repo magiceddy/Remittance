@@ -73,7 +73,6 @@ contract RemittanceManager is Ownable, Bank {
 		bytes32 checkPuzzle = keccak256(_exchangePuzzle, _receiverPuzzle);
 		Remittance remittance = getRemittance(checkPuzzle);
 
-		require(uint(remittance.state()) == 0);
 		require(msg.sender == remittance.exchange());
 
 		uint256 amount = getAmount(checkPuzzle);
@@ -89,19 +88,19 @@ contract RemittanceManager is Ownable, Bank {
 
 	function claimBack(bytes32 _puzzle) public returns (bool) {
 		Remittance remittance = getRemittance(_puzzle);
+		require(remittance.senderCanClaimback());
 		require(msg.sender == remittance.sender());
 
-		require(remittance.senderCanClaimback()) {
-			uint256 amount = getAmount(_puzzle);
-			deleteAccount(_puzzle);
-			delete remittances[_puzzle];
-			remittance.kill();
 
-			require(msg.sender.send(amount));
+		uint256 amount = getAmount(_puzzle);
+		deleteAccount(_puzzle);
+		delete remittances[_puzzle];
+		remittance.kill();
 
-			emit LogWithdrawal(_puzzle);
-			return true;
-		}
+		require(msg.sender.send(amount));
+
+		emit LogWithdrawal(_puzzle);
+		return true;
 	}
 
 	function getPuzzle(bytes32 _exchangePuzzle, bytes32 _receiverPuzzle)
