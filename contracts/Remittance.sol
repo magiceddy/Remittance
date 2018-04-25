@@ -1,178 +1,80 @@
 pragma solidity ^0.4.21;
 
+import "./Ownable.sol";
 
-contract Remittance {
+contract Remittance is Ownable {
 
-    enum State { Run, Stop }
+    address public sender;
+    uint256 public claimStart;
+    uint256 public claimEnd;
+    address public exchange;
 
-    address public owner;
-    uint256 public threshold;
+    enum State {Created, Withdrawal, Killed}
     State public state;
 
-    struct RemittanceData {
-        uint256 amount;
-        uint256 claimStart;
-        uint256 claimEnd;
-        bool toBeTransfered;
-    }
-
-    mapping(address => mapping(bytes32 => RemittanceData)) public remittancesByOwner;
-    mapping(address => mapping(bytes32 => uint256)) public noncePerUser;
-
-    event LogNewRemittance(address indexed sender, uint256 amount, bytes32 puzzle);
-    event LogWithdrawal(address indexed sender, address indexed exchange, bytes32 puzzle);
-    event LogChangePuzzle(address indexed owner, bytes32 oldPuzzle, bytes32 newPuzzle);
-    event LogNewNonce(address indexed sender, bytes32 user, uint256 nonce);
-    event LogThreshold(uint256 threshold);
-
-    modifier noToLowValue() {
-        require(threshold != 0x00);
-        require(msg.value > threshold);
-        _;
-    }
-
-    modifier running() {
-        require(state == State.Run);
-        _;
-    }
-
-    function Remittance(uint _state) public {
-        require(uint(State.Run) == _state);
-        owner = msg.sender;
-        state = State.Run;
-    }
-
-    function() public {}
-
-    function setRemittance(
-        bytes32 puzzle,
+    event LogRemittance(
+        address indexed sender,
         uint256 claimStart,
-        uint256 claimEnd
+        uint256 claimEnd,
+        address exchange
+    );
+
+    event LogStateChange(State state);
+    event LogKilled();
+
+    function Remittance(
+        address _sender,
+        uint256 _claimStart,
+        uint256 _claimEnd,
+        address _exchange
     )
         public
-        payable
-        running()
-        noToLowValue()
-        returns (bool)
     {
-        RemittanceData storage remittance = remittancesByOwner[msg.sender][puzzle];
-
-        require(remittance.amount == 0);
+        require(_sender != address(0x0));
         require(claimStart <= claimEnd);
+        require(_exchange != address(0x0));
 
-        remittance.toBeTransfered = true;
-        remittance.amount = msg.value;
-        remittance.claimStart = block.number + claimStart;
-        remittance.claimEnd = block.number + claimEnd;
+        sender = _sender;
+        claimStart = _claimStart;
+        claimEnd = _claimEnd;
+        exchange = _exchange;
+        state = State.Created;
 
-        emit LogNewRemittance(msg.sender, msg.value, puzzle);
+        emit LogRemittance(
+            sender,
+            claimStart,
+            claimEnd,
+            exchange
+        );
+
+        emit LogStateChange(state);
+    }
+
+    function setWithdrawalState() public onlyOwner returns (bool) {
+        require(state == State.Created);
+
+        state = State.Withdrawal;
+        emit LogStateChange(state);
         return true;
     }
 
-    function withdrawal(
-        address sender,
-        bytes32 exchangePuzzle,
-        bytes32 receiverPuzzle
-    )
+    function senderCanClaimback()
         public
-        running()
+        view
         returns (bool)
     {
-        require(msg.sender != sender);
-
-        bytes32 puzzle = keccak256(exchangePuzzle, receiverPuzzle);
-        Remittance storage remittance = remittancesByOwner[sender][puzzle];
-
-        if (transfer(remittance)) {
-            return true;
-        }
-        return false;
+        return block.number <= claimEnd && block.number >= claimStart;
     }
 
-    function claimBack(bytes32 puzzle) public returns (bool) {
-        Remittance storage remittance = remittancesByOwner[msg.sender][puzzle];
-        require(senderCanClaimback(puzzle));
+    function kill() public onlyOwner returns (bool) {
+        require(state == State.Withdrawal);
 
-        if (transfer(remittance)) {
-            return true;
-        }
-        return false;
-    }
-
-    function changePuzzle(bytes32 oldPuzzle, bytes32 newPuzzle)
-        public
-        returns (bool)
-    {
-        RemittanceData storage remittance = remittancesByOwner[msg.sender][oldPuzzle];
-
-        assert(remittance.toBeTransfered);
-
-        remittance.toBeTransfered = false;
-        remittancesByOwner[msg.sender][newPuzzle] = remittance;
-        remittancesByOwner[msg.sender][newPuzzle].toBeTransfered = true;
-
-        emit LogChangePuzzle(msg.sender, oldPuzzle, newPuzzle);
+        state = State.Killed;
+        emit LogKilled();
         return true;
     }
 
-    // in production external oracle
-    function getOneTimeNonce(bytes32 user) public returns (uint256) {
-        noncePerUser[msg.sender][user] = block.number;
-
-        emit LogNewNonce(msg.sender, user, noncePerUser[msg.sender][user]);
-        return block.number;
-    }
-
-    function setThreshold(uint256 newThreshold)
-        public
-        returns (bool)
-    {
-        require(msg.sender == owner);
-        require(newThreshold != threshold);
-
-        thrashold = newThrashold;
-        emit LogThreshold(newThrashold);
-    }
-
-    function getRemittance(bytes32 puzzle)
-        public
-        view
-        returns(
-            uint256 amount,
-            uint256 claimStart,
-            uint256 claimEnd,
-            bool toBeTransfered
-        )
-    {
-        RemittanceData memory r = remittancesByOwner[msg.sender][puzzle];
-        return(r.amount, r.claimStart, r.claimEnd, r.toBeTransfered);
-    }
-
-    function kill() public {
-        require(msg.sender == owner);
-        state = State.Stop;
-    }
-
-    function transfer(Remittance remittance) private returns (bool) {
-        if (remittance.toBeTransfered) {
-            uint256 amount = remittance.amount;
-
-            remittance.amount = 0;
-            remittance.toBeTransfered = false;
-
-            emit LogWithdrawal(sender, msg.sender, puzzle);
-            msg.sender.transfer(amount);
-
-            return true;
-        }
-        return false;
-    }
-
-    function senderCanClaimback(Remittance remittance)
-        private
-        view
-        returns (bool)
-    {
-        return block.number <= remittance.claimEnd && block.number >= remittance.claimStart;
+    function() public payable {
+        revert();
     }
 }
