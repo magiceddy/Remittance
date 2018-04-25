@@ -11,6 +11,9 @@ contract RemittanceManager is Ownable, Bank {
 
 	mapping(bytes32 => Remittance) public remittances;
 
+	enum State {Created, HaveRemmitance, Killed}
+	State state;
+
 	event LogNewRemittance(bytes32 puzzle);
 	event LogWithdrawal(bytes32 puzzle);
 	event LogChangePuzzle(bytes32 oldPuzzle, bytes32 newPuzzle);
@@ -21,6 +24,7 @@ contract RemittanceManager is Ownable, Bank {
 	function RemittanceManager(address _recovery) public {
 		require(_recovery != address(0x0));
 		setRecoveryAddress(_recovery);
+		state = State.Created;
 	}
 
 	function setRecoveryAddress(address _recovery)
@@ -32,7 +36,6 @@ contract RemittanceManager is Ownable, Bank {
 
 		recoveryAddress = _recovery;
 		emit LogRecoveryAddress(recoveryAddress);
-
 		return true;
 	}
 
@@ -46,7 +49,9 @@ contract RemittanceManager is Ownable, Bank {
 		payable
 		returns (bool)
 	{
+		require(state == State.HaveRemmitance);
 		require(msg.value > threshold);
+
 		remittances[_puzzle] = new Remittance(
 			msg.sender,
 			_claimStart,
@@ -116,13 +121,17 @@ contract RemittanceManager is Ownable, Bank {
 		require(_threshold > 0);
 
 		threshold = _threshold;
+		state = State.HaveRemmitance;
+
 		emit LogSetTreshold(_threshold);
 		return true;
 	}
 
 	function kill() public onlyOwner returns (bool) {
-        emit LogKilled(recoveryAddress, address(this).balance);
-        selfdestruct(recoveryAddress);
+		state = State.Killed;
+        require(recoveryAddress.send(address(this).balance));
+		emit LogKilled(recoveryAddress, address(this).balance);
+		return true;
     }
 
 	function() public payable {
