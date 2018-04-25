@@ -77,7 +77,7 @@ contract RemittanceManager is Ownable, Bank {
 		require(msg.sender == remittance.exchange());
 
 		uint256 amount = getAmount(checkPuzzle);
-		remittance.setWithdrawalState();
+		remittance.kill();
 		deleteAccount(checkPuzzle);
 		delete remittances[checkPuzzle];
 
@@ -93,9 +93,9 @@ contract RemittanceManager is Ownable, Bank {
 
 		if(remittance.senderCanClaimback()) {
 			uint256 amount = getAmount(_puzzle);
-			remittance.setWithdrawalState();
 			deleteAccount(_puzzle);
 			delete remittances[_puzzle];
+			remittance.kill();
 
 			require(msg.sender.send(amount));
 
