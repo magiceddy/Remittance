@@ -4,32 +4,37 @@ import "./Ownable.sol";
 import "./Remittance.sol";
 import "./Bank.sol";
 
-contract RemittanceManager is Ownable, Bank {
+contract RemittanceManager is Ownable {
 
-	uint256 threshold;
-	address recoveryAddress;
+	address public recoveryAddress;
+	address public banckAddress;
+	bool public killed;
+	bool public stop;
+	Bank public bank;
 
 	mapping(bytes32 => Remittance) public remittances;
 
-	enum State {Created, HaveRemmitance, Killed}
-	State state;
-
-	event LogNewRemittance(bytes32 puzzle);
+	event LogNewRemittance(bytes32 puzzle, uint256 amount);
 	event LogWithdrawal(bytes32 puzzle);
-	event LogChangePuzzle(bytes32 oldPuzzle, bytes32 newPuzzle);
-	event LogSetTreshold(uint256 threshold);
 	event LogRecoveryAddress(address recovery);
 	event LogKilled(address recovery, uint256 amount);
+	event LogBankAddress(address bankAddress);
+
+	modifier running() {
+		require(!killed && !stop);
+		_;
+	}
 
 	function RemittanceManager(address _recovery) public {
 		require(_recovery != address(0x0));
 		setRecoveryAddress(_recovery);
-		state = State.Created;
+		bank = new Bank();
 	}
 
 	function setRecoveryAddress(address _recovery)
 		public
 		onlyOwner
+		running
 		returns (bool)
 	{
 		require(_recovery != address(0x0));
@@ -43,14 +48,15 @@ contract RemittanceManager is Ownable, Bank {
 		bytes32 _puzzle,
 		uint256 _claimStart,
 		uint256 _claimEnd,
-		address _exchange
+		address _exchange,
+		uint256 _threshold
 	)
 		public
 		payable
+		running
 		returns (bool)
 	{
-		require(state == State.HaveRemmitance);
-		require(msg.value > threshold);
+		require(msg.value > _threshold);
 
 		remittances[_puzzle] = new Remittance(
 			msg.sender,
@@ -59,15 +65,16 @@ contract RemittanceManager is Ownable, Bank {
 			_exchange
 		);
 
-		addAccount(_puzzle);
-		credit(_puzzle, msg.value);
+		bank.addAccount(_puzzle);
+		bank.credit(_puzzle, msg.value);
 
-		emit LogNewRemittance(_puzzle);
+		emit LogNewRemittance(_puzzle, msg.value);
 		return true;
 	}
 
 	function withdrawal(bytes32 _exchangePuzzle, bytes32 _receiverPuzzle)
 		public
+		running
 		returns (bool)
 	{
 		bytes32 checkPuzzle = keccak256(_exchangePuzzle, _receiverPuzzle);
@@ -75,9 +82,10 @@ contract RemittanceManager is Ownable, Bank {
 
 		require(msg.sender == remittance.exchange());
 
-		uint256 amount = getAmount(checkPuzzle);
+		uint256 amount = bank.balanceOf(checkPuzzle);
 		remittance.kill();
-		deleteAccount(checkPuzzle);
+		bank.debit(checkPuzzle, amount);
+		bank.deleteAccount(checkPuzzle);
 		delete remittances[checkPuzzle];
 
 		require(msg.sender.send(amount));
@@ -86,16 +94,17 @@ contract RemittanceManager is Ownable, Bank {
 		return true;
 	}
 
-	function claimBack(bytes32 _puzzle) public returns (bool) {
+	function claimBack(bytes32 _puzzle) public running returns (bool) {
 		Remittance remittance = getRemittance(_puzzle);
 		require(remittance.senderCanClaimback());
 		require(msg.sender == remittance.sender());
 
 
-		uint256 amount = getAmount(_puzzle);
-		deleteAccount(_puzzle);
-		delete remittances[_puzzle];
+		uint256 amount = bank.balanceOf(_puzzle);
 		remittance.kill();
+		bank.debit(_puzzle, amount);
+		bank.deleteAccount(_puzzle);
+		delete remittances[_puzzle];
 
 		require(msg.sender.send(amount));
 
@@ -116,22 +125,21 @@ contract RemittanceManager is Ownable, Bank {
 		return Remittance(remittances[_puzzle]);
 	}
 
-	function setThreshold(uint256 _threshold) public onlyOwner returns (bool) {
-		require(_threshold > 0);
-
-		threshold = _threshold;
-		state = State.HaveRemmitance;
-
-		emit LogSetTreshold(_threshold);
-		return true;
-	}
-
 	function kill() public onlyOwner returns (bool) {
-		state = State.Killed;
+		killed = true;
         require(recoveryAddress.send(address(this).balance));
 		emit LogKilled(recoveryAddress, address(this).balance);
 		return true;
     }
+
+	function switchStop()
+		public
+		onlyOwner
+		returns (bool)
+	{
+		stop = !stop;
+		return true;
+	}
 
 	function() public payable {
 		revert();
