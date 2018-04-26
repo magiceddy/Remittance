@@ -9,18 +9,12 @@ contract Remittance is Ownable {
     uint256 public claimEnd;
     address public exchange;
 
-    enum State {Created, Killed}
-    State public state;
-
     event LogRemittance(
         address indexed sender,
         uint256 claimStart,
         uint256 claimEnd,
         address exchange
     );
-
-    event LogStateChange(State state);
-    event LogKilled();
 
     function Remittance(
         address _sender,
@@ -38,7 +32,6 @@ contract Remittance is Ownable {
         claimStart = _claimStart;
         claimEnd = _claimEnd;
         exchange = _exchange;
-        state = State.Created;
 
         emit LogRemittance(
             sender,
@@ -46,8 +39,6 @@ contract Remittance is Ownable {
             claimEnd,
             exchange
         );
-
-        emit LogStateChange(state);
     }
 
     function senderCanClaimback()
@@ -59,8 +50,7 @@ contract Remittance is Ownable {
     }
 
     function kill() public onlyOwner returns (bool) {
-        state = State.Killed;
-        emit LogKilled();
+        selfdestruct(msg.sender);
         return true;
     }
 
