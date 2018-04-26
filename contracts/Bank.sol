@@ -2,8 +2,9 @@ pragma solidity 0.4.21;
 
 import "./Ownable.sol";
 import "./SafeMath.sol";
+import "./IBank.sol";
 
-contract Bank is Ownable {
+contract Bank is IBank, Ownable {
 
 	using SafeMath for uint256;
 
@@ -21,7 +22,7 @@ contract Bank is Ownable {
 	}
 
 	function addAccount(bytes32 account)
-		internal
+		public
 		onlyOwner
 		returns (bool)
 	{
@@ -33,7 +34,7 @@ contract Bank is Ownable {
 	}
 
 	function deleteAccount(bytes32 account)
-		internal
+		public
 		onlyOwner
 		isAccount(account)
 		returns (bool)
@@ -41,12 +42,13 @@ contract Bank is Ownable {
 		require(balances[account] == 0);
 
 		delete balances[account];
+		delete accounts[account];
 		emit LogDeleteAccount(account);
 		return true;
 	}
 
 	function credit(bytes32 account, uint256 amount)
-		internal
+		public
 		onlyOwner
 		isAccount(account)
 		returns (bool)
@@ -59,7 +61,7 @@ contract Bank is Ownable {
 	}
 
 	function debit(bytes32 account, uint256 amount)
-		internal
+		public
 		onlyOwner
 		isAccount(account)
 		returns (bool)
@@ -71,12 +73,12 @@ contract Bank is Ownable {
 		return true;
 	}
 
-	function getAmount(bytes32 account)
-		internal
-		view
-		isAccount(account)
-		returns (uint256)
-	{
-		return balances[account];
-	}
+	function balanceOf(bytes32 account)
+	    public
+        view
+        isAccount(account)
+        returns (uint256)
+    {
+        return balances[account];
+    }
 }
